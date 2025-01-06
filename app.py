@@ -88,6 +88,42 @@ html_template = """
             color: #264653;
         }
     </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const saleTypeDropdown = document.getElementById("sale_type");
+            const saleAmountInput = document.getElementById("sale_amount");
+
+            saleTypeDropdown.addEventListener("change", function() {
+                const selectedType = saleTypeDropdown.value;
+                const residentialServices = {
+                    "Fibe TV - Starter": 12,
+                    "Fibe TV - Good": 30,
+                    "Fibe TV - Better": 40,
+                    "Fibe TV - Best": 50,
+                    "Aliant TV": 35,
+                    "Fibe Migration": 35,
+                    "Internet - Aliant Fibe/DSL": 20,
+                    "Internet Migration": 5,
+                    "Home Phone": 10,
+                    "Long Distance": 2
+                };
+
+                const extraServices = {
+                    "Prepaid Auto Top-Up": 5,
+                    "Applecare": 2,
+                    "Lost/Stolen Loaner": 7.5
+                };
+
+                if (residentialServices[selectedType]) {
+                    saleAmountInput.value = residentialServices[selectedType];
+                } else if (extraServices[selectedType]) {
+                    saleAmountInput.value = extraServices[selectedType];
+                } else {
+                    saleAmountInput.value = "";
+                }
+            });
+        });
+    </script>
 </head>
 <body>
     <div class=\"container py-5\">
@@ -190,6 +226,8 @@ def add_sale():
         earned = sale_amount * 0.30
     elif sale_type in commission_grid["Residential Services"]:
         earned = commission_grid["Residential Services"][sale_type]
+    elif sale_type in commission_grid["Extra Services"]:
+        earned = commission_grid["Extra Services"][sale_type]
     else:
         for category, items in commission_grid.items():
             if sale_type in items:
