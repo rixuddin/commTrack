@@ -150,13 +150,16 @@ def add_sale():
     global total_commission, sales_history
     sale_type = request.form["sale_type"]
     sale_amount = float(request.form["sale_amount"])
-    
+
     if sale_type == "Accessories":
         earned = sale_amount * 0.09
     elif sale_type == "SPC":
         earned = sale_amount * 0.30
     else:
-        earned = sale_amount * commission_grid.get(sale_type, 0)
+        for category, items in commission_grid.items():
+            if sale_type in items:
+                earned = sale_amount * items[sale_type]
+                break
 
     total_commission += earned
     sales_history.append(f"{sale_type} - ${sale_amount:.2f} - Commission Earned: ${earned:.2f}")
