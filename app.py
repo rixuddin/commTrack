@@ -155,6 +155,8 @@ def add_sale():
         earned = sale_amount * 0.09
     elif sale_type == "SPC":
         earned = sale_amount * 0.30
+    elif sale_type in commission_grid["Residential Services"]:
+        earned = commission_grid["Residential Services"][sale_type]
     else:
         for category, items in commission_grid.items():
             if sale_type in items:
