@@ -32,7 +32,9 @@ app = Flask(__name__)
 
 # Initialize global variables to store cumulative total and sales history
 total_commission = 0
+total_extra_earnings = 0
 sales_history = []
+extra_earnings_history = []
 
 # HTML template with a modern, clean UI
 html_template = """
@@ -54,14 +56,21 @@ html_template = """
             margin-bottom: 20px;
         }
         .btn-primary {
-            background-color: #2a9d8f;
+            background-color: #0055A4;
             border: none;
             border-radius: 8px;
         }
         .btn-primary:hover {
-            background-color: #21867a;
+            background-color: #003B73;
         }
-        .btn-warning, .btn-danger {
+        .btn-warning {
+            background-color: #FFC72C;
+            border: none;
+            border-radius: 8px;
+        }
+        .btn-danger {
+            background-color: #DA291C;
+            border: none;
             border-radius: 8px;
         }
         .total-display {
@@ -121,6 +130,30 @@ html_template = """
             </div>
         </div>
 
+        <div class=\"card\">
+            <div class=\"card-body\">
+                <form method=\"POST\" action=\"/add_extra_earning\">
+                    <div class=\"mb-3\">
+                        <label for=\"extra_earning\" class=\"form-label\">Enter Extra Earnings (CAD):</label>
+                        <input type=\"number\" name=\"extra_earning\" id=\"extra_earning\" class=\"form-control\" step=\"0.01\" required>
+                    </div>
+                    <button type=\"submit\" class=\"btn btn-primary w-100\">Add Extra Earning</button>
+                </form>
+            </div>
+        </div>
+
+        <div class=\"card\">
+            <div class=\"card-body\">
+                <h2 class=\"total-display\">Total Extra Earnings: {{ total_extra | round(2) }} CAD</h2>
+                <h3 class=\"h5 mt-3\">Extra Earnings History:</h3>
+                <ul class=\"list-group\">
+                    {% for extra in extra_earnings_history %}
+                        <li class=\"list-group-item\">{{ extra }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
         <div class=\"d-flex justify-content-between\">
             <form method=\"POST\" action=\"/undo_last\">
                 <button type=\"submit\" class=\"btn btn-warning\">Undo Last Entry</button>
@@ -139,9 +172,9 @@ html_template = """
 # Route to handle the main page
 @app.route("/", methods=["GET"])
 def commission_tracker():
-    global total_commission, sales_history
+    global total_commission, total_extra_earnings, sales_history, extra_earnings_history
     return render_template_string(
-        html_template, commission_grid=commission_grid, total=total_commission, sales_history=sales_history
+        html_template, commission_grid=commission_grid, total=total_commission + total_extra_earnings, total_extra=total_extra_earnings, sales_history=sales_history, extra_earnings_history=extra_earnings_history
     )
 
 # Route to handle adding a sale
@@ -168,6 +201,15 @@ def add_sale():
 
     return redirect(url_for("commission_tracker"))
 
+# Route to handle adding extra earnings
+@app.route("/add_extra_earning", methods=["POST"])
+def add_extra_earning():
+    global total_extra_earnings, extra_earnings_history
+    extra_earning = float(request.form["extra_earning"])
+    total_extra_earnings += extra_earning
+    extra_earnings_history.append(f"Extra Earning - ${extra_earning:.2f}")
+    return redirect(url_for("commission_tracker"))
+
 # Route to handle undoing the last sale
 @app.route("/undo_last", methods=["POST"])
 def undo_last():
@@ -181,7 +223,9 @@ def undo_last():
 # Route to handle resetting the total
 @app.route("/reset_total", methods=["POST"])
 def reset_total():
-    global total_commission, sales_history
+    global total_commission, total_extra_earnings, sales_history, extra_earnings_history
     total_commission = 0
+    total_extra_earnings = 0
     sales_history = []
+    extra_earnings_history = []
     return redirect(url_for("commission_tracker"))
