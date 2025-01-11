@@ -92,6 +92,25 @@ html_template = """
         document.addEventListener("DOMContentLoaded", function() {
             const saleTypeDropdown = document.getElementById("sale_type");
             const saleAmountInput = document.getElementById("sale_amount");
+            const totalDisplay = document.querySelector(".total-display");
+            const salesHistoryList = document.querySelector(".list-group");
+
+            // Load saved data from Local Storage
+            let savedTotal = localStorage.getItem("total_commission");
+            let savedSalesHistory = localStorage.getItem("sales_history");
+
+            if (savedTotal) {
+                totalDisplay.textContent = `Running Total: ${parseFloat(savedTotal).toFixed(2)} CAD`;
+            }
+
+            if (savedSalesHistory) {
+                JSON.parse(savedSalesHistory).forEach(sale => {
+                    let listItem = document.createElement("li");
+                    listItem.classList.add("list-group-item");
+                    listItem.textContent = sale;
+                    salesHistoryList.appendChild(listItem);
+                });
+            }
 
             saleTypeDropdown.addEventListener("change", function() {
                 const selectedType = saleTypeDropdown.value;
@@ -121,6 +140,19 @@ html_template = """
                 } else {
                     saleAmountInput.value = "";
                 }
+            });
+
+            // Save data to Local Storage on form submission
+            const form = document.querySelector("form[action='/add_sale']");
+            form.addEventListener("submit", function() {
+                let currentTotal = parseFloat(localStorage.getItem("total_commission")) || 0;
+                let saleAmount = parseFloat(saleAmountInput.value);
+                currentTotal += saleAmount;
+                localStorage.setItem("total_commission", currentTotal.toFixed(2));
+
+                let salesHistory = JSON.parse(localStorage.getItem("sales_history")) || [];
+                salesHistory.push(`${saleTypeDropdown.value} - $${saleAmount.toFixed(2)}`);
+                localStorage.setItem("sales_history", JSON.stringify(salesHistory));
             });
         });
     </script>
