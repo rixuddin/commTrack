@@ -19,8 +19,8 @@ commission_grid = {
         "TV (Fibe & Satellite Bell - Better/Best)": 45,
         "Aliant TV": 35,
         "Internet": 20,
-        "Home Phone": 10,
-    }
+        "Home Phone": 10
+    } # These are flat rates in dollars, not percentages
 }
 
 # Initialize Flask app
@@ -206,3 +206,4 @@ def reset_total():
     total_commission = 0
     sales_history = []
     return redirect(url_for("commission_tracker"))
+
