@@ -4,7 +4,7 @@ from flask import Flask, render_template_string, request, redirect, url_for
 commission_grid = {
     "Wireless Services": {
         "Postpaid (Contracted, HUG, Pre to Post, Tablet & Turbo, NCD, Features, Brand Migrations - Virgin to Bell)": 22,
-        "Postpaid (30 Day, Prepaid)": 20,,
+        "Postpaid (30 Day, Prepaid)": 20,
         "Brand Migration (Bell to Virgin)": 5,
     },
     "Extra Services": {
