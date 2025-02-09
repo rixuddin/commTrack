@@ -1,4 +1,5 @@
 from flask import Flask, render_template_string, request, redirect, url_for
+from datetime import datetime
 
 # Define the new commission grid
 commission_grid = {
@@ -78,49 +79,71 @@ html_template = """
             color: #264653;
         }
     </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const totalDisplay = document.querySelector(".total-display");
+            const salesHistoryList = document.querySelector(".list-group");
+            
+            let savedTotal = localStorage.getItem("total_commission");
+            let savedSalesHistory = localStorage.getItem("sales_history");
+            
+            if (savedTotal) {
+                totalDisplay.textContent = `Running Total: ${parseFloat(savedTotal).toFixed(2)} CAD`;
+            }
+            
+            if (savedSalesHistory) {
+                JSON.parse(savedSalesHistory).forEach(sale => {
+                    let listItem = document.createElement("li");
+                    listItem.classList.add("list-group-item", "d-flex", "justify-content-between", "align-items-center");
+                    listItem.innerHTML = `${sale}`;
+                    salesHistoryList.appendChild(listItem);
+                });
+            }
+        });
+    </script>
 </head>
 <body>
-    <div class=\"container py-5\">
-        <h1 class=\"text-center mb-4\">Bell Commission Tracker</h1>
-        <div class=\"card\">
-            <div class=\"card-body\">
-                <form method=\"POST\" action=\"/add_sale\">
-                    <div class=\"mb-3\">
-                        <label for=\"sale_type\" class=\"form-label\">Select Sale Type:</label>
-                        <select name=\"sale_type\" id=\"sale_type\" class=\"form-select\">
+    <div class="container py-5">
+        <h1 class="text-center mb-4">Bell Commission Tracker</h1>
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="/add_sale">
+                    <div class="mb-3">
+                        <label for="sale_type" class="form-label">Select Sale Type:</label>
+                        <select name="sale_type" id="sale_type" class="form-select">
                             {% for category, items in commission_grid.items() %}
-                                <optgroup label=\"{{ category }}\">
+                                <optgroup label="{{ category }}">
                                     {% if category in ["Accessories", "SPC (Smartphone Care)"] %}
-                                        <option value=\"{{ category }}\">{{ category }} - Commission: {{ items }}%</option>
+                                        <option value="{{ category }}">{{ category }} - Commission: {{ items }}%</option>
                                     {% else %}
                                         {% for sale, commission in items.items() %}
-                                            <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission if category != 'Wireline Services (Bell)' else '$' + commission|string }}{{ '%' if category != 'Wireline Services (Bell)' else '' }}</option>
+                                            <option value="{{ sale }}">{{ sale }} - Commission: {{ commission if category != 'Wireline Services (Bell)' else '$' + commission|string }}{{ '%' if category != 'Wireline Services (Bell)' else '' }}</option>
                                         {% endfor %}
                                     {% endif %}
                                 </optgroup>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class=\"mb-3\">
-                        <label for=\"sale_amount\" class=\"form-label\">Enter Sale Amount (CAD):</label>
-                        <input type=\"number\" name=\"sale_amount\" id=\"sale_amount\" class=\"form-control\" step=\"0.01\" required>
+                    <div class="mb-3">
+                        <label for="sale_amount" class="form-label">Enter Sale Amount (CAD):</label>
+                        <input type="number" name="sale_amount" id="sale_amount" class="form-control" step="0.01" required>
                     </div>
-                    <button type=\"submit\" class=\"btn btn-primary w-100\">Add Sale</button>
+                    <button type="submit" class="btn btn-primary w-100">Add Sale</button>
                 </form>
             </div>
         </div>
 
-        <div class=\"card\">
-            <div class=\"card-body\">
-                <h2 class=\"total-display\">Running Total: {{ total | round(2) }} CAD</h2>
-                <h3 class=\"h5 mt-3\">Sales History:</h3>
-                <ul class=\"list-group\">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="total-display">Running Total: {{ total | round(2) }} CAD</h2>
+                <h3 class="h5 mt-3">Sales History:</h3>
+                <ul class="list-group">
                     {% for sale in sales_history %}
-                        <li class=\"list-group-item d-flex justify-content-between align-items-center\">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             {{ sale }}
-                            <form method=\"POST\" action=\"/remove_sale\" style=\"margin: 0;\">
-                                <input type=\"hidden\" name=\"sale_index\" value=\"{{ loop.index0 }}\">
-                                <button type=\"submit\" class=\"btn btn-sm btn-danger\">Remove</button>
+                            <form method="POST" action="/remove_sale" style="margin: 0;">
+                                <input type="hidden" name="sale_index" value="{{ loop.index0 }}">
+                                <button type="submit" class="btn btn-sm btn-danger">Remove</button>
                             </form>
                         </li>
                     {% endfor %}
@@ -128,17 +151,17 @@ html_template = """
             </div>
         </div>
 
-        <div class=\"d-flex justify-content-between\">
-            <form method=\"POST\" action=\"/undo_last\">
-                <button type=\"submit\" class=\"btn btn-warning\">Undo Last Entry</button>
+        <div class="d-flex justify-content-between">
+            <form method="POST" action="/undo_last">
+                <button type="submit" class="btn btn-warning">Undo Last Entry</button>
             </form>
-            <form method=\"POST\" action=\"/reset_total\">
-                <button type=\"submit\" class=\"btn btn-danger\">Clear All Entries</button>
+            <form method="POST" action="/reset_total">
+                <button type="submit" class="btn btn-danger">Clear All Entries</button>
             </form>
         </div>
     </div>
 
-    <script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js\"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 """
@@ -170,7 +193,8 @@ def add_sale():
                 break
 
     total_commission += earned
-    sales_history.append(f"{sale_type} - ${sale_amount:.2f} - Commission Earned: ${earned:.2f}")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sales_history.append(f"{sale_type} - ${sale_amount:.2f} - Commission Earned: ${earned:.2f} (Added on: {timestamp})")
 
     return redirect(url_for("commission_tracker"))
 
@@ -181,7 +205,7 @@ def remove_sale():
     sale_index = int(request.form["sale_index"])
     if 0 <= sale_index < len(sales_history):
         last_entry = sales_history.pop(sale_index)
-        earned = float(last_entry.split("Commission Earned: $")[-1])
+        earned = float(last_entry.split("Commission Earned: $")[-1].split(" ")[0])
         total_commission -= earned
     return redirect(url_for("commission_tracker"))
 
@@ -191,7 +215,7 @@ def undo_last():
     global total_commission, sales_history
     if sales_history:
         last_entry = sales_history.pop()
-        earned = float(last_entry.split("Commission Earned: $")[-1])
+        earned = float(last_entry.split("Commission Earned: $")[-1].split(" ")[0])
         total_commission -= earned
     return redirect(url_for("commission_tracker"))
 
@@ -202,4 +226,5 @@ def reset_total():
     total_commission = 0
     sales_history = []
     return redirect(url_for("commission_tracker"))
+
 
