@@ -12,14 +12,8 @@ commission_grid = {
         "Network Connected Devices (NCD) Activating Bonus": "Commission X 2",
         "All Other Services (incl. AppleCare)": 2,
     },
-    "Accessories": {
-        "Attach Rate (0 - 1.19)": 0.03,
-        "Attach Rate (1.20+)": 0.09,
-    },
-    "SPC (Smartphone Care)": {
-        "Attach Rate (0 - 39.99%)": 0.15,
-        "Attach Rate (40%+)": 0.30,
-    },
+    "Accessories": 0.09,  # 9% commission on accessories
+    "SPC (Smartphone Care)": 0.30,  # 30% commission on SPC
     "Wireline Services (Bell)": {
         "TV (Fibe & Satellite Bell - Starter/Good)": 25,
         "TV (Fibe & Satellite Bell - Better/Best)": 45,
@@ -113,9 +107,13 @@ html_template = """
                         <select name=\"sale_type\" id=\"sale_type\" class=\"form-select\">
                             {% for category, items in commission_grid.items() %}
                                 <optgroup label=\"{{ category }}\">
-                                    {% for sale, commission in items.items() %}
-                                        <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission }}</option>
-                                    {% endfor %}
+                                    {% if category in ["Accessories", "SPC (Smartphone Care)"] %}
+                                        <option value=\"{{ category }}\">{{ category }} - Commission: {{ items * 100 }}%</option>
+                                    {% else %}
+                                        {% for sale, commission in items.items() %}
+                                            <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission }}</option>
+                                        {% endfor %}
+                                    {% endif %}
                                 </optgroup>
                             {% endfor %}
                         </select>
@@ -135,7 +133,13 @@ html_template = """
                 <h3 class=\"h5 mt-3\">Sales History:</h3>
                 <ul class=\"list-group\">
                     {% for sale in sales_history %}
-                        <li class=\"list-group-item\">{{ sale }}</li>
+                        <li class=\"list-group-item d-flex justify-content-between align-items-center\">
+                            {{ sale }}
+                            <form method=\"POST\" action=\"/remove_sale\" style=\"margin: 0;\">
+                                <input type=\"hidden\" name=\"sale_index\" value=\"{{ loop.index0 }}\">
+                                <button type=\"submit\" class=\"btn btn-sm btn-danger\">Remove</button>
+                            </form>
+                        </li>
                     {% endfor %}
                 </ul>
             </div>
@@ -172,14 +176,30 @@ def add_sale():
     sale_amount = float(request.form["sale_amount"])
 
     earned = 0
-    if sale_type in commission_grid["Wireless Services"] or sale_type in commission_grid["SPC (Smartphone Care)"] or sale_type == "Accessories":
-        earned = sale_amount * commission_grid["Wireless Services"].get(sale_type, 0) or commission_grid["SPC (Smartphone Care)"].get(sale_type, 0) or commission_grid["Accessories"].get(sale_type, 0)
-    elif sale_type in commission_grid["Extra Services"] or sale_type in commission_grid["Wireline Services (Bell)"] or sale_type in commission_grid["Wireline Other (Bell)"] or sale_type in commission_grid["Add-ons"]:
-        earned = commission_grid["Extra Services"].get(sale_type, 0) or commission_grid["Wireline Services (Bell)"].get(sale_type, 0) or commission_grid["Wireline Other (Bell)"].get(sale_type, 0) or commission_grid["Add-ons"].get(sale_type, 0)
+    if sale_type == "Accessories":
+        earned = sale_amount * commission_grid["Accessories"]
+    elif sale_type == "SPC (Smartphone Care)":
+        earned = sale_amount * commission_grid["SPC (Smartphone Care)"]
+    else:
+        for category, items in commission_grid.items():
+            if isinstance(items, dict) and sale_type in items:
+                earned = items[sale_type]
+                break
 
     total_commission += earned
     sales_history.append(f"{sale_type} - ${sale_amount:.2f} - Commission Earned: ${earned:.2f}")
 
+    return redirect(url_for("commission_tracker"))
+
+# Route to handle removing a specific sale
+@app.route("/remove_sale", methods=["POST"])
+def remove_sale():
+    global total_commission, sales_history
+    sale_index = int(request.form["sale_index"])
+    if 0 <= sale_index < len(sales_history):
+        last_entry = sales_history.pop(sale_index)
+        earned = float(last_entry.split("Commission Earned: $")[-1])
+        total_commission -= earned
     return redirect(url_for("commission_tracker"))
 
 # Route to handle undoing the last sale
