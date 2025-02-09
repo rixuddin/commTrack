@@ -98,7 +98,7 @@ html_template = """
                                         <option value=\"{{ category }}\">{{ category }} - Commission: {{ items }}%</option>
                                     {% else %}
                                         {% for sale, commission in items.items() %}
-                                            <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission }}</option>
+                                            <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission }}%</option>
                                         {% endfor %}
                                     {% endif %}
                                 </optgroup>
