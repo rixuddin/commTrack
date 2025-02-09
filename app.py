@@ -7,11 +7,7 @@ commission_grid = {
         "Postpaid (30 Day, Prepaid)": 20,
         "Brand Migration (Bell to Virgin)": 5,
     },
-    "Extra Services": {
-        "Prepaid Auto Top-Up": 5,
-        "Network Connected Devices (NCD) Activating Bonus": "Commission X 2",
-        "All Other Services (incl. AppleCare)": 2,
-    },
+    
     "Accessories": 9,  # 9% commission on accessories
     "SPC (Smartphone Care)": 30,  # 30% commission on SPC
     "Wireline Services (Bell)": {
