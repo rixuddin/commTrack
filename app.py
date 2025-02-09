@@ -3,36 +3,23 @@ from flask import Flask, render_template_string, request, redirect, url_for
 # Define the new commission grid
 commission_grid = {
     "Wireless Services": {
-        "Postpaid (Contracted, HUG, Pre to Post, Tablet & Turbo, NCD, Features, Brand Migrations - Virgin to Bell)": 0.22,
-        "Postpaid (30 Day, Prepaid)": 0.20,
-        "Brand Migration (Bell to Virgin)": 0.05,
+        "Postpaid (Contracted, HUG, Pre to Post, Tablet & Turbo, NCD, Features, Brand Migrations - Virgin to Bell)": 22,
+        "Postpaid (30 Day, Prepaid)": 20,,
+        "Brand Migration (Bell to Virgin)": 5,
     },
     "Extra Services": {
         "Prepaid Auto Top-Up": 5,
         "Network Connected Devices (NCD) Activating Bonus": "Commission X 2",
         "All Other Services (incl. AppleCare)": 2,
     },
-    "Accessories": 0.09,  # 9% commission on accessories
-    "SPC (Smartphone Care)": 0.30,  # 30% commission on SPC
+    "Accessories": 9,  # 9% commission on accessories
+    "SPC (Smartphone Care)": 30,  # 30% commission on SPC
     "Wireline Services (Bell)": {
         "TV (Fibe & Satellite Bell - Starter/Good)": 25,
         "TV (Fibe & Satellite Bell - Better/Best)": 45,
         "Aliant TV": 35,
         "Internet": 20,
         "Home Phone": 10,
-    },
-    "Wireline Other (Bell)": {
-        "BRS Accessories": "10% of GM",
-        "Additional Receiver Sale": 5,
-        "TV Fibe Migration": 35,
-        "Internet Migration": 5,
-        "Long Distance (LD)": 2,
-        "Wifi Pods": 1,
-    },
-    "Add-ons": {
-        "$0.01 - $8.00": 2,
-        "$8.01 - $25.00": 4,
-        "$25.01+": 6,
     }
 }
 
@@ -108,7 +95,7 @@ html_template = """
                             {% for category, items in commission_grid.items() %}
                                 <optgroup label=\"{{ category }}\">
                                     {% if category in ["Accessories", "SPC (Smartphone Care)"] %}
-                                        <option value=\"{{ category }}\">{{ category }} - Commission: {{ items * 100 }}%</option>
+                                        <option value=\"{{ category }}\">{{ category }} - Commission: {{ items }}%</option>
                                     {% else %}
                                         {% for sale, commission in items.items() %}
                                             <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission }}</option>
@@ -177,13 +164,13 @@ def add_sale():
 
     earned = 0
     if sale_type == "Accessories":
-        earned = sale_amount * commission_grid["Accessories"]
+        earned = sale_amount * (commission_grid["Accessories"] / 100)
     elif sale_type == "SPC (Smartphone Care)":
-        earned = sale_amount * commission_grid["SPC (Smartphone Care)"]
+        earned = sale_amount * (commission_grid["SPC (Smartphone Care)"] / 100)
     else:
         for category, items in commission_grid.items():
             if isinstance(items, dict) and sale_type in items:
-                earned = items[sale_type]
+                earned = sale_amount * (items[sale_type] / 100) if items[sale_type] >= 1 else items[sale_type]
                 break
 
     total_commission += earned
