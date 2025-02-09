@@ -98,7 +98,7 @@ html_template = """
                                         <option value=\"{{ category }}\">{{ category }} - Commission: {{ items }}%</option>
                                     {% else %}
                                         {% for sale, commission in items.items() %}
-                                            <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission }}%</option>
+                                            <option value=\"{{ sale }}\">{{ sale }} - Commission: {{ commission if category != 'Wireline Services (Bell)' else '$' + commission|string }}{{ '%' if category != 'Wireline Services (Bell)' else '' }}</option>
                                         {% endfor %}
                                     {% endif %}
                                 </optgroup>
@@ -170,7 +170,7 @@ def add_sale():
     else:
         for category, items in commission_grid.items():
             if isinstance(items, dict) and sale_type in items:
-                earned = items[sale_type] if category == 'Wireline Services (Bell)' else sale_amount * (items[sale_type] / 100)
+                earned = items[sale_type] if category == 'Wireline Services (Bell)' else sale_amount * (items[sale_type] / 100) if isinstance(items[sale_type], (int, float)) and items[sale_type] <= 100 else items[sale_type]
                 break
 
     total_commission += earned
