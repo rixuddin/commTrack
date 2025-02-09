@@ -1,30 +1,45 @@
 from flask import Flask, render_template_string, request, redirect, url_for
 
-# Define the commission grid with percentages
+# Define the new commission grid
 commission_grid = {
     "Wireless Services": {
-        "Postpaid": 0.35,
-        "Prepaid": 0.20,
-        "HUG Migration": 0.14,
+        "Postpaid (Contracted, HUG, Pre to Post, Tablet & Turbo, NCD, Features, Brand Migrations - Virgin to Bell)": 0.22,
+        "Postpaid (30 Day, Prepaid)": 0.20,
         "Brand Migration (Bell to Virgin)": 0.05,
     },
     "Extra Services": {
         "Prepaid Auto Top-Up": 5,
-        "Applecare": 2,
-        "Lost/Stolen Loaner": 7.5,  # Average of 5/10
+        "Network Connected Devices (NCD) Activating Bonus": "Commission X 2",
+        "All Other Services (incl. AppleCare)": 2,
     },
-    "Residential Services": {
-        "Fibe TV - Starter": 12,
-        "Fibe TV - Good": 30,
-        "Fibe TV - Better": 40,
-        "Fibe TV - Best": 50,
+    "Accessories": {
+        "Attach Rate (0 - 1.19)": 0.03,
+        "Attach Rate (1.20+)": 0.09,
+    },
+    "SPC (Smartphone Care)": {
+        "Attach Rate (0 - 39.99%)": 0.15,
+        "Attach Rate (40%+)": 0.30,
+    },
+    "Wireline Services (Bell)": {
+        "TV (Fibe & Satellite Bell - Starter/Good)": 25,
+        "TV (Fibe & Satellite Bell - Better/Best)": 45,
         "Aliant TV": 35,
-        "Fibe Migration": 35,
-        "Internet - Aliant Fibe/DSL": 20,
-        "Internet Migration": 5,
+        "Internet": 20,
         "Home Phone": 10,
-        "Long Distance": 2,
     },
+    "Wireline Other (Bell)": {
+        "BRS Accessories": "10% of GM",
+        "Additional Receiver Sale": 5,
+        "TV Fibe Migration": 35,
+        "Internet Migration": 5,
+        "Long Distance (LD)": 2,
+        "Wifi Pods": 1,
+    },
+    "Add-ons": {
+        "$0.01 - $8.00": 2,
+        "$8.01 - $25.00": 4,
+        "$25.01+": 6,
+    }
 }
 
 # Initialize Flask app
@@ -32,9 +47,7 @@ app = Flask(__name__)
 
 # Initialize global variables to store cumulative total and sales history
 total_commission = 0
-total_extra_earnings = 0
 sales_history = []
-extra_earnings_history = []
 
 # HTML template with a modern, clean UI
 html_template = """
@@ -88,74 +101,6 @@ html_template = """
             color: #264653;
         }
     </style>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const saleTypeDropdown = document.getElementById("sale_type");
-            const saleAmountInput = document.getElementById("sale_amount");
-            const totalDisplay = document.querySelector(".total-display");
-            const salesHistoryList = document.querySelector(".list-group");
-
-            // Load saved data from Local Storage
-            let savedTotal = localStorage.getItem("total_commission");
-            let savedSalesHistory = localStorage.getItem("sales_history");
-
-            if (savedTotal) {
-                totalDisplay.textContent = `Running Total: ${parseFloat(savedTotal).toFixed(2)} CAD`;
-            }
-
-            if (savedSalesHistory) {
-                JSON.parse(savedSalesHistory).forEach(sale => {
-                    let listItem = document.createElement("li");
-                    listItem.classList.add("list-group-item");
-                    listItem.textContent = sale;
-                    salesHistoryList.appendChild(listItem);
-                });
-            }
-
-            saleTypeDropdown.addEventListener("change", function() {
-                const selectedType = saleTypeDropdown.value;
-                const residentialServices = {
-                    "Fibe TV - Starter": 12,
-                    "Fibe TV - Good": 30,
-                    "Fibe TV - Better": 40,
-                    "Fibe TV - Best": 50,
-                    "Aliant TV": 35,
-                    "Fibe Migration": 35,
-                    "Internet - Aliant Fibe/DSL": 20,
-                    "Internet Migration": 5,
-                    "Home Phone": 10,
-                    "Long Distance": 2
-                };
-
-                const extraServices = {
-                    "Prepaid Auto Top-Up": 5,
-                    "Applecare": 2,
-                    "Lost/Stolen Loaner": 7.5
-                };
-
-                if (residentialServices[selectedType]) {
-                    saleAmountInput.value = residentialServices[selectedType];
-                } else if (extraServices[selectedType]) {
-                    saleAmountInput.value = extraServices[selectedType];
-                } else {
-                    saleAmountInput.value = "";
-                }
-            });
-
-            // Save data to Local Storage on form submission
-            const form = document.querySelector("form[action='/add_sale']");
-            form.addEventListener("submit", function() {
-                let currentTotal = parseFloat(localStorage.getItem("total_commission")) || 0;
-                let saleAmount = parseFloat(saleAmountInput.value);
-                currentTotal += saleAmount;
-                localStorage.setItem("total_commission", currentTotal.toFixed(2));
-
-                let salesHistory = JSON.parse(localStorage.getItem("sales_history")) || [];
-                salesHistory.push(`${saleTypeDropdown.value} - $${saleAmount.toFixed(2)}`);
-                localStorage.setItem("sales_history", JSON.stringify(salesHistory));
-            });
-        });
-    </script>
 </head>
 <body>
     <div class=\"container py-5\">
@@ -173,8 +118,6 @@ html_template = """
                                     {% endfor %}
                                 </optgroup>
                             {% endfor %}
-                            <option value=\"Accessories\">Accessories - Commission: 9%</option>
-                            <option value=\"SPC\">SPC (Smartphone Care) - Commission: 30%</option>
                         </select>
                     </div>
                     <div class=\"mb-3\">
@@ -198,30 +141,6 @@ html_template = """
             </div>
         </div>
 
-        <div class=\"card\">
-            <div class=\"card-body\">
-                <form method=\"POST\" action=\"/add_extra_earning\">
-                    <div class=\"mb-3\">
-                        <label for=\"extra_earning\" class=\"form-label\">Enter Extra Earnings (CAD):</label>
-                        <input type=\"number\" name=\"extra_earning\" id=\"extra_earning\" class=\"form-control\" step=\"0.01\" required>
-                    </div>
-                    <button type=\"submit\" class=\"btn btn-primary w-100\">Add Extra Earning</button>
-                </form>
-            </div>
-        </div>
-
-        <div class=\"card\">
-            <div class=\"card-body\">
-                <h2 class=\"total-display\">Total Extra Earnings: {{ total_extra | round(2) }} CAD</h2>
-                <h3 class=\"h5 mt-3\">Extra Earnings History:</h3>
-                <ul class=\"list-group\">
-                    {% for extra in extra_earnings_history %}
-                        <li class=\"list-group-item\">{{ extra }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-
         <div class=\"d-flex justify-content-between\">
             <form method=\"POST\" action=\"/undo_last\">
                 <button type=\"submit\" class=\"btn btn-warning\">Undo Last Entry</button>
@@ -240,9 +159,9 @@ html_template = """
 # Route to handle the main page
 @app.route("/", methods=["GET"])
 def commission_tracker():
-    global total_commission, total_extra_earnings, sales_history, extra_earnings_history
+    global total_commission, sales_history
     return render_template_string(
-        html_template, commission_grid=commission_grid, total=total_commission + total_extra_earnings, total_extra=total_extra_earnings, sales_history=sales_history, extra_earnings_history=extra_earnings_history
+        html_template, commission_grid=commission_grid, total=total_commission, sales_history=sales_history
     )
 
 # Route to handle adding a sale
@@ -252,32 +171,15 @@ def add_sale():
     sale_type = request.form["sale_type"]
     sale_amount = float(request.form["sale_amount"])
 
-    if sale_type == "Accessories":
-        earned = sale_amount * 0.09
-    elif sale_type == "SPC":
-        earned = sale_amount * 0.30
-    elif sale_type in commission_grid["Residential Services"]:
-        earned = commission_grid["Residential Services"][sale_type]
-    elif sale_type in commission_grid["Extra Services"]:
-        earned = commission_grid["Extra Services"][sale_type]
-    else:
-        for category, items in commission_grid.items():
-            if sale_type in items:
-                earned = sale_amount * items[sale_type]
-                break
+    earned = 0
+    if sale_type in commission_grid["Wireless Services"] or sale_type in commission_grid["SPC (Smartphone Care)"] or sale_type == "Accessories":
+        earned = sale_amount * commission_grid["Wireless Services"].get(sale_type, 0) or commission_grid["SPC (Smartphone Care)"].get(sale_type, 0) or commission_grid["Accessories"].get(sale_type, 0)
+    elif sale_type in commission_grid["Extra Services"] or sale_type in commission_grid["Wireline Services (Bell)"] or sale_type in commission_grid["Wireline Other (Bell)"] or sale_type in commission_grid["Add-ons"]:
+        earned = commission_grid["Extra Services"].get(sale_type, 0) or commission_grid["Wireline Services (Bell)"].get(sale_type, 0) or commission_grid["Wireline Other (Bell)"].get(sale_type, 0) or commission_grid["Add-ons"].get(sale_type, 0)
 
     total_commission += earned
     sales_history.append(f"{sale_type} - ${sale_amount:.2f} - Commission Earned: ${earned:.2f}")
 
-    return redirect(url_for("commission_tracker"))
-
-# Route to handle adding extra earnings
-@app.route("/add_extra_earning", methods=["POST"])
-def add_extra_earning():
-    global total_extra_earnings, extra_earnings_history
-    extra_earning = float(request.form["extra_earning"])
-    total_extra_earnings += extra_earning
-    extra_earnings_history.append(f"Extra Earning - ${extra_earning:.2f}")
     return redirect(url_for("commission_tracker"))
 
 # Route to handle undoing the last sale
@@ -293,9 +195,7 @@ def undo_last():
 # Route to handle resetting the total
 @app.route("/reset_total", methods=["POST"])
 def reset_total():
-    global total_commission, total_extra_earnings, sales_history, extra_earnings_history
+    global total_commission, sales_history
     total_commission = 0
-    total_extra_earnings = 0
     sales_history = []
-    extra_earnings_history = []
     return redirect(url_for("commission_tracker"))
