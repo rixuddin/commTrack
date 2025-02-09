@@ -170,7 +170,7 @@ def add_sale():
     else:
         for category, items in commission_grid.items():
             if isinstance(items, dict) and sale_type in items:
-                earned = sale_amount * (items[sale_type] / 100) if items[sale_type] >= 1 else items[sale_type]
+                earned = items[sale_type] if category == 'Wireline Services (Bell)' else sale_amount * (items[sale_type] / 100)
                 break
 
     total_commission += earned
