@@ -1,230 +1,547 @@
-from flask import Flask, render_template_string, request, redirect, url_for
-from datetime import datetime
-
-# Define the new commission grid
-commission_grid = {
-    "Wireless Services": {
-        "Postpaid (Contracted, HUG, Pre to Post, Tablet & Turbo, NCD, Features, Brand Migrations - Virgin to Bell)": 22,
-        "Postpaid (30 Day, Prepaid)": 20,
-        "Brand Migration (Bell to Virgin)": 5,
-    },
-    
-    "Accessories": 9,  # 9% commission on accessories
-    "SPC (Smartphone Care)": 30,  # 30% commission on SPC
-    "Wireline Services (Bell)": {
-        "TV (Fibe & Satellite Bell - Starter/Good)": 25,
-        "TV (Fibe & Satellite Bell - Better/Best)": 45,
-        "Aliant TV": 35,
-        "Internet": 20,
-        "Home Phone": 10
-    } # These are flat rates in dollars, not percentages
-}
-
-# Initialize Flask app
-app = Flask(__name__)
-
-# Initialize global variables to store cumulative total and sales history
-total_commission = 0
-sales_history = []
-
-# HTML template with a modern, clean UI
-html_template = """
-<!doctype html>
-<html lang=\"en\">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset=\"UTF-8\">
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-    <title>Bell Commission Tracker</title>
-    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Commission Tracker</title>
     <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --warning: #f72585;
+        }
+        
         body {
-            background-color: #f9fafb;
-            font-family: 'Arial', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
         }
-        .card {
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }
-        .btn-primary {
-            background-color: #0055A4;
-            border: none;
-            border-radius: 8px;
+        
+        h1, h2, h3 {
+            color: var(--primary);
         }
-        .btn-primary:hover {
-            background-color: #003B73;
+        
+        .progress-container {
+            background: #e9ecef;
+            border-radius: 10px;
+            margin: 20px 0;
+            height: 30px;
         }
-        .btn-warning {
-            background-color: #FFC72C;
-            border: none;
-            border-radius: 8px;
-        }
-        .btn-danger {
-            background-color: #DA291C;
-            border: none;
-            border-radius: 8px;
-        }
-        .total-display {
-            font-size: 1.5rem;
+        
+        .progress-bar {
+            background: var(--accent);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
             font-weight: bold;
-            color: #264653;
+            min-width: 30px;
         }
-        .list-group-item {
-            border: none;
-            background-color: #e9ecef;
+        
+        .card {
+            background: white;
             border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--accent);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 10px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        button, input[type="submit"] {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: var(--secondary);
+        }
+        
+        input, select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
             margin-bottom: 10px;
         }
-        h1, h2, h3 {
-            color: #264653;
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffeeba;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #c3e6cb;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const totalDisplay = document.querySelector(".total-display");
-            const salesHistoryList = document.querySelector(".list-group");
-            
-            let savedTotal = localStorage.getItem("total_commission");
-            let savedSalesHistory = localStorage.getItem("sales_history");
-            
-            if (savedTotal) {
-                totalDisplay.textContent = `Running Total: ${parseFloat(savedTotal).toFixed(2)} CAD`;
-            }
-            
-            if (savedSalesHistory) {
-                JSON.parse(savedSalesHistory).forEach(sale => {
-                    let listItem = document.createElement("li");
-                    listItem.classList.add("list-group-item", "d-flex", "justify-content-between", "align-items-center");
-                    listItem.innerHTML = `${sale}`;
-                    salesHistoryList.appendChild(listItem);
-                });
-            }
-        });
-    </script>
 </head>
 <body>
-    <div class="container py-5">
-        <h1 class="text-center mb-4">Bell Commission Tracker</h1>
+    <div class="container">
+        <h1>📊 Sales Commission Tracker</h1>
+        <p>Track your CTN, warranty, and residential sales to maximize earnings</p>
+        
         <div class="card">
-            <div class="card-body">
-                <form method="POST" action="/add_sale">
-                    <div class="mb-3">
-                        <label for="sale_type" class="form-label">Select Sale Type:</label>
-                        <select name="sale_type" id="sale_type" class="form-select">
-                            {% for category, items in commission_grid.items() %}
-                                <optgroup label="{{ category }}">
-                                    {% if category in ["Accessories", "SPC (Smartphone Care)"] %}
-                                        <option value="{{ category }}">{{ category }} - Commission: {{ items }}%</option>
-                                    {% else %}
-                                        {% for sale, commission in items.items() %}
-                                            <option value="{{ sale }}">{{ sale }} - Commission: {{ commission if category != 'Wireline Services (Bell)' else '$' + commission|string }}{{ '%' if category != 'Wireline Services (Bell)' else '' }}</option>
-                                        {% endfor %}
-                                    {% endif %}
-                                </optgroup>
-                            {% endfor %}
-                        </select>
+            <h2>Monthly Progress</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>CTN (Term)</h3>
+                    <div class="stat-value" id="ctn-term-count">0</div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="ctn-term-progress" style="width: 0%">0%</div>
                     </div>
-                    <div class="mb-3">
-                        <label for="sale_amount" class="form-label">Enter Sale Amount (CAD):</label>
-                        <input type="number" name="sale_amount" id="sale_amount" class="form-control" step="0.01" required>
+                    <p><span id="ctn-term-remaining">100</span> remaining to goal</p>
+                </div>
+                
+                <div class="stat-box">
+                    <h3>CTN (BYOD)</h3>
+                    <div class="stat-value" id="ctn-byod-count">0</div>
+                </div>
+                
+                <div class="stat-box">
+                    <h3>Warranties</h3>
+                    <div class="stat-value" id="warranty-count">0</div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="warranty-progress" style="width: 0%">0%</div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Add Sale</button>
-                </form>
+                    <p><span id="warranty-remaining">37</span> remaining to goal</p>
+                </div>
+                
+                <div class="stat-box">
+                    <h3>Residential</h3>
+                    <div class="stat-value" id="residential-count">0</div>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>Projected Commission</h3>
+                    <div class="stat-value">$<span id="projected-commission">0</span></div>
+                </div>
             </div>
         </div>
-
+        
         <div class="card">
-            <div class="card-body">
-                <h2 class="total-display">Running Total: {{ total | round(2) }} CAD</h2>
-                <h3 class="h5 mt-3">Sales History:</h3>
-                <ul class="list-group">
-                    {% for sale in sales_history %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ sale }}
-                            <form method="POST" action="/remove_sale" style="margin: 0;">
-                                <input type="hidden" name="sale_index" value="{{ loop.index0 }}">
-                                <button type="submit" class="btn btn-sm btn-danger">Remove</button>
-                            </form>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
+            <h2>Add Today's Sales</h2>
+            <form id="sales-form">
+                <div class="form-group">
+                    <label for="sale-date">Date</label>
+                    <input type="date" id="sale-date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="ctn-term">CTN (Term) Activations</label>
+                    <input type="number" id="ctn-term" min="0" value="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="ctn-byod">CTN (BYOD) Activations</label>
+                    <input type="number" id="ctn-byod" min="0" value="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="warranties">Warranties Sold</label>
+                    <input type="number" id="warranties" min="0" value="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="residential">Residential Sales</label>
+                    <input type="number" id="residential" min="0" value="0">
+                </div>
+                
+                <button type="submit">Add Sales</button>
+            </form>
         </div>
-
-        <div class="d-flex justify-content-between">
-            <form method="POST" action="/undo_last">
-                <button type="submit" class="btn btn-warning">Undo Last Entry</button>
-            </form>
-            <form method="POST" action="/reset_total">
-                <button type="submit" class="btn btn-danger">Clear All Entries</button>
-            </form>
+        
+        <div class="card">
+            <h2>Sales History</h2>
+            <table id="sales-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>CTN (Term)</th>
+                        <th>CTN (BYOD)</th>
+                        <th>Warranties</th>
+                        <th>Residential</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="sales-data">
+                    <!-- Sales data will appear here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>Commission Breakdown</h2>
+            <div id="commission-alerts"></div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Count</th>
+                        <th>Rate</th>
+                        <th>Earnings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>CTN (Term)</td>
+                        <td id="commission-ctn-term">0</td>
+                        <td>$40</td>
+                        <td>$<span id="earnings-ctn-term">0</span></td>
+                    </tr>
+                    <tr>
+                        <td>CTN (BYOD)</td>
+                        <td id="commission-ctn-byod">0</td>
+                        <td>$30</td>
+                        <td>$<span id="earnings-ctn-byod">0</span></td>
+                    </tr>
+                    <tr>
+                        <td>Warranties</td>
+                        <td id="commission-warranties">0</td>
+                        <td>$5</td>
+                        <td>$<span id="earnings-warranties">0</span></td>
+                    </tr>
+                    <tr>
+                        <td>Residential</td>
+                        <td id="commission-residential">0</td>
+                        <td>$35</td>
+                        <td>$<span id="earnings-residential">0</span></td>
+                    </tr>
+                    <tr style="font-weight: bold; background-color: #f8f9fa;">
+                        <td>Total</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>$<span id="earnings-total">0</span></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Store sales data in localStorage
+        let salesData = JSON.parse(localStorage.getItem('salesData')) || [];
+        
+        // DOM Elements
+        const salesForm = document.getElementById('sales-form');
+        const salesTable = document.getElementById('sales-data');
+        const ctnTermCount = document.getElementById('ctn-term-count');
+        const ctnTermProgress = document.getElementById('ctn-term-progress');
+        const ctnTermRemaining = document.getElementById('ctn-term-remaining');
+        const ctnByodCount = document.getElementById('ctn-byod-count');
+        const warrantyCount = document.getElementById('warranty-count');
+        const warrantyProgress = document.getElementById('warranty-progress');
+        const warrantyRemaining = document.getElementById('warranty-remaining');
+        const residentialCount = document.getElementById('residential-count');
+        const projectedCommission = document.getElementById('projected-commission');
+        const commissionAlerts = document.getElementById('commission-alerts');
+        
+        // Commission DOM elements
+        const commissionCtnTerm = document.getElementById('commission-ctn-term');
+        const earningsCtnTerm = document.getElementById('earnings-ctn-term');
+        const commissionCtnByod = document.getElementById('commission-ctn-byod');
+        const earningsCtnByod = document.getElementById('earnings-ctn-byod');
+        const commissionWarranties = document.getElementById('commission-warranties');
+        const earningsWarranties = document.getElementById('earnings-warranties');
+        const commissionResidential = document.getElementById('commission-residential');
+        const earningsResidential = document.getElementById('earnings-residential');
+        const earningsTotal = document.getElementById('earnings-total');
+        
+        // Constants
+        const CTN_TERM_GOAL = 100;
+        const WARRANTY_GOAL = 37;
+        const CTN_TERM_RATE = 40;
+        const CTN_BYOD_RATE = 30;
+        const WARRANTY_RATE = 5;
+        const RESIDENTIAL_RATE = 35;
+        
+        // Initialize the app
+        function initApp() {
+            renderSalesTable();
+            updateStats();
+            updateCommission();
+            
+            // Set default date to today
+            document.getElementById('sale-date').valueAsDate = new Date();
+        }
+        
+        // Render sales table
+        function renderSalesTable() {
+            salesTable.innerHTML = '';
+            
+            if (salesData.length === 0) {
+                salesTable.innerHTML = '<tr><td colspan="6" style="text-align: center;">No sales data yet</td></tr>';
+                return;
+            }
+            
+            salesData.forEach((sale, index) => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${formatDate(sale.date)}</td>
+                    <td>${sale.ctnTerm}</td>
+                    <td>${sale.ctnByod}</td>
+                    <td>${sale.warranties}</td>
+                    <td>${sale.residential}</td>
+                    <td><button onclick="deleteSale(${index})">Delete</button></td>
+                `;
+                
+                salesTable.appendChild(row);
+            });
+        }
+        
+        // Update statistics
+        function updateStats() {
+            const totals = calculateTotals();
+            
+            // Update counts
+            ctnTermCount.textContent = totals.ctnTerm;
+            ctnByodCount.textContent = totals.ctnByod;
+            warrantyCount.textContent = totals.warranties;
+            residentialCount.textContent = totals.residential;
+            
+            // Update progress bars
+            const ctnTermPercent = Math.min(100, (totals.ctnTerm / CTN_TERM_GOAL) * 100);
+            const warrantyPercent = Math.min(100, (totals.warranties / WARRANTY_GOAL) * 100);
+            
+            ctnTermProgress.style.width = `${ctnTermPercent}%`;
+            ctnTermProgress.textContent = `${Math.round(ctnTermPercent)}%`;
+            
+            warrantyProgress.style.width = `${warrantyPercent}%`;
+            warrantyProgress.textContent = `${Math.round(warrantyPercent)}%`;
+            
+            // Update remaining
+            ctnTermRemaining.textContent = Math.max(0, CTN_TERM_GOAL - totals.ctnTerm);
+            warrantyRemaining.textContent = Math.max(0, WARRANTY_GOAL - totals.warranties);
+            
+            // Update projected commission
+            const commission = (totals.ctnTerm * CTN_TERM_RATE) + 
+                             (totals.ctnByod * CTN_BYOD_RATE) + 
+                             (totals.warranties * WARRANTY_RATE) + 
+                             (totals.residential * RESIDENTIAL_RATE);
+            
+            projectedCommission.textContent = commission.toLocaleString();
+        }
+        
+        // Update commission breakdown
+        function updateCommission() {
+            const totals = calculateTotals();
+            
+            commissionCtnTerm.textContent = totals.ctnTerm;
+            earningsCtnTerm.textContent = (totals.ctnTerm * CTN_TERM_RATE).toLocaleString();
+            
+            commissionCtnByod.textContent = totals.ctnByod;
+            earningsCtnByod.textContent = (totals.ctnByod * CTN_BYOD_RATE).toLocaleString();
+            
+            commissionWarranties.textContent = totals.warranties;
+            earningsWarranties.textContent = (totals.warranties * WARRANTY_RATE).toLocaleString();
+            
+            commissionResidential.textContent = totals.residential;
+            earningsResidential.textContent = (totals.residential * RESIDENTIAL_RATE).toLocaleString();
+            
+            const totalCommission = (totals.ctnTerm * CTN_TERM_RATE) + 
+                                  (totals.ctnByod * CTN_BYOD_RATE) + 
+                                  (totals.warranties * WARRANTY_RATE) + 
+                                  (totals.residential * RESIDENTIAL_RATE);
+            
+            earningsTotal.textContent = totalCommission.toLocaleString();
+            
+            // Generate alerts
+            generateAlerts(totals);
+        }
+        
+        // Generate alerts based on progress
+        function generateAlerts(totals) {
+            commissionAlerts.innerHTML = '';
+            
+            if (totals.ctnTerm < CTN_TERM_GOAL) {
+                const needed = CTN_TERM_GOAL - totals.ctnTerm;
+                const daysLeft = daysInMonth() - new Date().getDate();
+                const dailyGoal = Math.ceil(needed / Math.max(1, daysLeft));
+                
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-warning';
+                alert.innerHTML = `
+                    <strong>CTN (Term) Goal:</strong> You need ${needed} more Term activations to reach 100. 
+                    Aim for ${dailyGoal} per day to hit your target.
+                `;
+                commissionAlerts.appendChild(alert);
+            } else {
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success';
+                alert.innerHTML = `
+                    <strong>🎉 CTN (Term) Goal Achieved!</strong> You've hit 100+ Term activations this month.
+                `;
+                commissionAlerts.appendChild(alert);
+            }
+            
+            if (totals.warranties < WARRANTY_GOAL) {
+                const needed = WARRANTY_GOAL - totals.warranties;
+                const daysLeft = daysInMonth() - new Date().getDate();
+                const dailyGoal = Math.ceil(needed / Math.max(1, daysLeft));
+                
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-warning';
+                alert.innerHTML = `
+                    <strong>Warranty Goal:</strong> You need ${needed} more warranties to reach 37. 
+                    Aim for ${dailyGoal} per day to maintain Plateau 4.
+                `;
+                commissionAlerts.appendChild(alert);
+            }
+        }
+        
+        // Calculate totals from sales data
+        function calculateTotals() {
+            return salesData.reduce((acc, sale) => {
+                acc.ctnTerm += parseInt(sale.ctnTerm) || 0;
+                acc.ctnByod += parseInt(sale.ctnByod) || 0;
+                acc.warranties += parseInt(sale.warranties) || 0;
+                acc.residential += parseInt(sale.residential) || 0;
+                return acc;
+            }, { ctnTerm: 0, ctnByod: 0, warranties: 0, residential: 0 });
+        }
+        
+        // Add new sale
+        salesForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const newSale = {
+                date: document.getElementById('sale-date').value,
+                ctnTerm: parseInt(document.getElementById('ctn-term').value) || 0,
+                ctnByod: parseInt(document.getElementById('ctn-byod').value) || 0,
+                warranties: parseInt(document.getElementById('warranties').value) || 0,
+                residential: parseInt(document.getElementById('residential').value) || 0
+            };
+            
+            salesData.push(newSale);
+            localStorage.setItem('salesData', JSON.stringify(salesData));
+            
+            // Reset form
+            document.getElementById('ctn-term').value = 0;
+            document.getElementById('ctn-byod').value = 0;
+            document.getElementById('warranties').value = 0;
+            document.getElementById('residential').value = 0;
+            
+            // Update UI
+            renderSalesTable();
+            updateStats();
+            updateCommission();
+        });
+        
+        // Delete sale
+        function deleteSale(index) {
+            if (confirm('Are you sure you want to delete this sale?')) {
+                salesData.splice(index, 1);
+                localStorage.setItem('salesData', JSON.stringify(salesData));
+                renderSalesTable();
+                updateStats();
+                updateCommission();
+            }
+        }
+        
+        // Helper functions
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString(undefined, options);
+        }
+        
+        function daysInMonth() {
+            const now = new Date();
+            return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        }
+        
+        // Initialize the app
+        initApp();
+    </script>
 </body>
 </html>
-"""
-
-# Route to handle the main page
-@app.route("/", methods=["GET"])
-def commission_tracker():
-    global total_commission, sales_history
-    return render_template_string(
-        html_template, commission_grid=commission_grid, total=total_commission, sales_history=sales_history
-    )
-
-# Route to handle adding a sale
-@app.route("/add_sale", methods=["POST"])
-def add_sale():
-    global total_commission, sales_history
-    sale_type = request.form["sale_type"]
-    sale_amount = float(request.form["sale_amount"])
-
-    earned = 0
-    if sale_type == "Accessories":
-        earned = sale_amount * (commission_grid["Accessories"] / 100)
-    elif sale_type == "SPC (Smartphone Care)":
-        earned = sale_amount * (commission_grid["SPC (Smartphone Care)"] / 100)
-    else:
-        for category, items in commission_grid.items():
-            if isinstance(items, dict) and sale_type in items:
-                earned = items[sale_type] if category == 'Wireline Services (Bell)' else sale_amount * (items[sale_type] / 100) if isinstance(items[sale_type], (int, float)) and items[sale_type] <= 100 else items[sale_type]
-                break
-
-    total_commission += earned
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    sales_history.append(f"{sale_type} - ${sale_amount:.2f} - Commission Earned: ${earned:.2f} (Added on: {timestamp})")
-
-    return redirect(url_for("commission_tracker"))
-
-# Route to handle removing a specific sale
-@app.route("/remove_sale", methods=["POST"])
-def remove_sale():
-    global total_commission, sales_history
-    sale_index = int(request.form["sale_index"])
-    if 0 <= sale_index < len(sales_history):
-        last_entry = sales_history.pop(sale_index)
-        earned = float(last_entry.split("Commission Earned: $")[-1].split(" ")[0])
-        total_commission -= earned
-    return redirect(url_for("commission_tracker"))
-
-# Route to handle undoing the last sale
-@app.route("/undo_last", methods=["POST"])
-def undo_last():
-    global total_commission, sales_history
-    if sales_history:
-        last_entry = sales_history.pop()
-        earned = float(last_entry.split("Commission Earned: $")[-1].split(" ")[0])
-        total_commission -= earned
-    return redirect(url_for("commission_tracker"))
-
-# Route to handle resetting the total
-@app.route("/reset_total", methods=["POST"])
-def reset_total():
-    global total_commission, sales_history
-    total_commission = 0
-    sales_history = []
-    return redirect(url_for("commission_tracker"))
-
-
